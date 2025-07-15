@@ -328,7 +328,7 @@
             
             if (selectId === 'oldPriceColumn') {
                 select.innerHTML = '<option value="">-- Volitelné --</option>';
-                columns.slice(1).forEach(column => { // Skip empty string from array
+                columns.slice(1).forEach(column => { 
                     if (column) {
                         const option = document.createElement('option');
                         option.value = column;
@@ -361,7 +361,6 @@
         }
 
         function formatValue(value) {
-            // Pokud je to číslo a má více než 2 desetinná místa, zaokrouhli
             if (typeof value === 'number' && value % 1 !== 0) {
                 return Math.round(value);
             }
@@ -380,7 +379,6 @@
                 return;
             }
 
-            // Vytvoř lookup mapu s normalizovanými klíči
             const lookupMap = {};
             let lookupCount = 0;
             
@@ -396,7 +394,6 @@
 
             showStatus('mainFileStatus', `🔍 Vytvořena lookup mapa s ${lookupCount} záznamy`, 'info');
 
-            // Proveď VLOOKUP
             let foundCount = 0;
             let notFoundCount = 0;
             
@@ -410,7 +407,6 @@
                     foundCount++;
                     newRow[newColumnName] = foundValue;
                     
-                    // Přidej rozdíl, pokud je vybrán sloupec se starou cenou
                     if (oldPriceColumn && row[oldPriceColumn] !== null && row[oldPriceColumn] !== undefined && row[oldPriceColumn] !== '') {
                         const oldPrice = parseFloat(row[oldPriceColumn]) || 0;
                         const newPrice = parseFloat(foundValue) || 0;
@@ -459,14 +455,12 @@
                         <tr>
             `;
 
-            // Hlavičky tabulky
             const headers = Object.keys(resultData[0]);
             headers.forEach(header => {
                 html += `<th>${header}</th>`;
             });
             html += '</tr></thead><tbody>';
 
-            // Řádky tabulky (zobraz jen prvních 50)
             resultData.slice(0, 50).forEach(row => {
                 html += '<tr>';
                 headers.forEach(header => {
@@ -479,13 +473,11 @@
                     if (isNotFound) className = 'not-found';
                     else if (isNewColumn || isDifferenceColumn) className = 'highlight';
                     
-                    // Formátuj hodnotu pro zobrazení
                     let displayValue = value || '';
                     if (typeof value === 'number' && value % 1 !== 0) {
                         displayValue = Math.round(value);
                     }
                     
-                    // Speciální formátování pro rozdíl
                     if (isDifferenceColumn && typeof value === 'number') {
                         displayValue = value > 0 ? `+${value}` : value;
                     }
@@ -523,7 +515,6 @@
             link.click();
         }
 
-        // Event listenery pro checkování stavu
         document.getElementById('mainColumn').addEventListener('change', checkReadyState);
         document.getElementById('lookupColumn').addEventListener('change', checkReadyState);
         document.getElementById('returnColumn').addEventListener('change', checkReadyState);
