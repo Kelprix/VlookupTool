@@ -147,8 +147,11 @@
             
             <div id="mainSheetSelector" style="display: none;">
                 <div class="sheet-selector">
-                    <label><strong>Hlavní list (s daty):</strong></label>
+                    <label><strong>Hlavní záložka:</strong></label>
                     <select id="mainSheet" onchange="updateMainSheetData()"></select>
+                    <label style="margin-left: 15px;">
+                        <input type="checkbox" id="mainIncludeHeaders" onchange="updateMainSheetData()"> Nejsou nadpisy
+                    </label>
                 </div>
             </div>
         </div>
@@ -162,6 +165,9 @@
                 <div class="sheet-selector">
                     <label><strong>Záložka s cenami (MOC):</strong></label>
                     <select id="lookupSheet" onchange="updateLookupSheetData()"></select>
+                    <label style="margin-left: 15px;">
+                        <input type="checkbox" id="lookupIncludeHeaders" onchange="updateLookupSheetData()"> Nejsou nadpisy
+                    </label>
                 </div>
             </div>
         </div>
@@ -286,11 +292,58 @@
 
         function updateMainSheetData() {
             const sheetName = document.getElementById('mainSheet').value;
+            const includeHeaders = document.getElementById('mainIncludeHeaders').checked;
             if (!sheetName || !mainWorkbook) return;
             
             try {
                 const worksheet = mainWorkbook.Sheets[sheetName];
-                mainSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                
+                if (includeHeaders) {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    if (rawData.length > 0) {
+                        const headers = [];
+                        const maxCols = Math.max(...rawData.map(row => row.length));
+                        for (let i = 0; i < maxCols; i++) {
+                            headers.push(`Sloupec_${i + 1}`);
+                        }
+                        
+                        mainSheetData = rawData.map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index] || '';
+                            });
+                            return obj;
+                        }).filter(row => Object.values(row).some(val => val !== ''));
+                    }
+                } else {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                        const row = rawData[i];
+                        const nonEmptyCount = row.filter(cell => cell && cell !== '').length;
+                        if (nonEmptyCount >= 2) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (headerRowIndex === -1) {
+                        mainSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                    } else {
+                        const headers = rawData[headerRowIndex];
+                        const dataRows = rawData.slice(headerRowIndex + 1);
+                        
+                        mainSheetData = dataRows.map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                const key = header || `_EMPTY_${index}`;
+                                obj[key] = row[index] || '';
+                            });
+                            return obj;
+                        }).filter(row => Object.values(row).some(val => val !== ''));
+                    }
+                }
                 
                 if (mainSheetData.length > 0) {
                     populateColumnSelect('mainColumn', Object.keys(mainSheetData[0]));
@@ -305,11 +358,58 @@
 
         function updateLookupSheetData() {
             const sheetName = document.getElementById('lookupSheet').value;
+            const includeHeaders = document.getElementById('lookupIncludeHeaders').checked;
             if (!sheetName || !lookupWorkbook) return;
             
             try {
                 const worksheet = lookupWorkbook.Sheets[sheetName];
-                lookupSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                
+                if (includeHeaders) {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    if (rawData.length > 0) {
+                        const headers = [];
+                        const maxCols = Math.max(...rawData.map(row => row.length));
+                        for (let i = 0; i < maxCols; i++) {
+                            headers.push(`Sloupec_${i + 1}`);
+                        }
+                        
+                        lookupSheetData = rawData.map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                obj[header] = row[index] || '';
+                            });
+                            return obj;
+                        }).filter(row => Object.values(row).some(val => val !== ''));
+                    }
+                } else {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                        const row = rawData[i];
+                        const nonEmptyCount = row.filter(cell => cell && cell !== '').length;
+                        if (nonEmptyCount >= 2) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (headerRowIndex === -1) {
+                        lookupSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                    } else {
+                        const headers = rawData[headerRowIndex];
+                        const dataRows = rawData.slice(headerRowIndex + 1);
+                        
+                        lookupSheetData = dataRows.map(row => {
+                            const obj = {};
+                            headers.forEach((header, index) => {
+                                const key = header || `_EMPTY_${index}`;
+                                obj[key] = row[index] || '';
+                            });
+                            return obj;
+                        }).filter(row => Object.values(row).some(val => val !== ''));
+                    }
+                }
                 
                 if (lookupSheetData.length > 0) {
                     populateColumnSelect('lookupColumn', Object.keys(lookupSheetData[0]));
@@ -328,7 +428,7 @@
             
             if (selectId === 'oldPriceColumn') {
                 select.innerHTML = '<option value="">-- Volitelné --</option>';
-                columns.slice(1).forEach(column => { 
+                columns.slice(1).forEach(column => { // Skip empty string from array
                     if (column) {
                         const option = document.createElement('option');
                         option.value = column;
@@ -361,6 +461,7 @@
         }
 
         function formatValue(value) {
+            // Pokud je to číslo a má více než 2 desetinná místa, zaokrouhli
             if (typeof value === 'number' && value % 1 !== 0) {
                 return Math.round(value);
             }
@@ -379,6 +480,7 @@
                 return;
             }
 
+            // Vytvoř lookup mapu s normalizovanými klíči
             const lookupMap = {};
             let lookupCount = 0;
             
@@ -394,6 +496,7 @@
 
             showStatus('mainFileStatus', `🔍 Vytvořena lookup mapa s ${lookupCount} záznamy`, 'info');
 
+            // Proveď VLOOKUP
             let foundCount = 0;
             let notFoundCount = 0;
             
@@ -407,6 +510,7 @@
                     foundCount++;
                     newRow[newColumnName] = foundValue;
                     
+                    // Přidej rozdíl, pokud je vybrán sloupec se starou cenou
                     if (oldPriceColumn && row[oldPriceColumn] !== null && row[oldPriceColumn] !== undefined && row[oldPriceColumn] !== '') {
                         const oldPrice = parseFloat(row[oldPriceColumn]) || 0;
                         const newPrice = parseFloat(foundValue) || 0;
@@ -455,12 +559,14 @@
                         <tr>
             `;
 
+            // Hlavičky tabulky
             const headers = Object.keys(resultData[0]);
             headers.forEach(header => {
                 html += `<th>${header}</th>`;
             });
             html += '</tr></thead><tbody>';
 
+            // Řádky tabulky (zobraz jen prvních 50)
             resultData.slice(0, 50).forEach(row => {
                 html += '<tr>';
                 headers.forEach(header => {
@@ -473,11 +579,13 @@
                     if (isNotFound) className = 'not-found';
                     else if (isNewColumn || isDifferenceColumn) className = 'highlight';
                     
+                    // Formátuj hodnotu pro zobrazení
                     let displayValue = value || '';
                     if (typeof value === 'number' && value % 1 !== 0) {
                         displayValue = Math.round(value);
                     }
                     
+                    // Speciální formátování pro rozdíl
                     if (isDifferenceColumn && typeof value === 'number') {
                         displayValue = value > 0 ? `+${value}` : value;
                     }
@@ -515,6 +623,7 @@
             link.click();
         }
 
+        // Event listenery pro checkování stavu
         document.getElementById('mainColumn').addEventListener('change', checkReadyState);
         document.getElementById('lookupColumn').addEventListener('change', checkReadyState);
         document.getElementById('returnColumn').addEventListener('change', checkReadyState);
