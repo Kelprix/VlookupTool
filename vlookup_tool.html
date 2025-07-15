@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel VLOOKUP nástroj</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .upload-section h3 {
+            color: #555;
+            margin-top: 0;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .highlight {
+            background: #fff3cd;
+        }
+        .not-found {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .sheet-selector {
+            margin: 15px 0;
+        }
+        select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 0 10px;
+        }
+        .column-selector {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .column-selector > div {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+        }
+        .column-selector label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Excel VLOOKUP nástroj (.xlsx)</h1>
+        
+        <div class="upload-section">
+            <h3>📁 Nová objednávka (.xlsx)</h3>
+            <input type="file" id="mainFile" accept=".xlsx,.xls" onchange="handleMainFile(event)">
+            <div id="mainFileStatus"></div>
+            
+            <div id="mainSheetSelector" style="display: none;">
+                <div class="sheet-selector">
+                    <label><strong>Hlavní list (s daty):</strong></label>
+                    <select id="mainSheet" onchange="updateMainSheetData()"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-section">
+            <h3>📁 Ceník dodavatele (.xlsx)</h3>
+            <input type="file" id="lookupFile" accept=".xlsx,.xls" onchange="handleLookupFile(event)">
+            <div id="lookupFileStatus"></div>
+            
+            <div id="lookupSheetSelector" style="display: none;">
+                <div class="sheet-selector">
+                    <label><strong>Záložka s cenami (MOC):</strong></label>
+                    <select id="lookupSheet" onchange="updateLookupSheetData()"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="upload-section" id="configSection" style="display: none;">
+            <h3>⚙️ Nastavení VLOOKUP</h3>
+            <div class="column-selector">
+                <div>
+                    <label>Kód (Dodavatelské číslo):</label>
+                    <select id="mainColumn"></select>
+                </div>
+                <div>
+                    <label>Kód v ceníku:</label>
+                    <select id="lookupColumn"></select>
+                </div>
+                <div>
+                    <label>MOC v ceníku dodavatele:</label>
+                    <select id="returnColumn"></select>
+                </div>
+            </div>
+            <div class="column-selector">
+                <div>
+                    <label>Naše MOC:</label>
+                    <select id="oldPriceColumn">
+                        <option value="">-- Volitelné --</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label><strong>Název nového sloupce:</strong></label>
+                <input type="text" id="newColumnName" value="Nová cena" style="margin-left: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <button onclick="performVLookup()" id="vlookupBtn" disabled>🔍 Provést VLOOKUP</button>
+        </div>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        let mainWorkbook = null;
+        let lookupWorkbook = null;
+        let mainSheetData = null;
+        let lookupSheetData = null;
+        let resultData = null;
+
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function handleMainFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus('mainFileStatus', '🔄 Načítám hlavní soubor...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    mainWorkbook = XLSX.read(e.target.result, {type: 'binary'});
+                    
+                    const sheetNames = mainWorkbook.SheetNames;
+                    populateMainSheetSelector(sheetNames);
+                    
+                    showStatus('mainFileStatus', `✅ Načteno ${sheetNames.length} listů: ${sheetNames.join(', ')}`, 'success');
+                    document.getElementById('mainSheetSelector').style.display = 'block';
+                    
+                } catch (error) {
+                    showStatus('mainFileStatus', `❌ Chyba při načítání: ${error.message}`, 'error');
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function handleLookupFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus('lookupFileStatus', '🔄 Načítám vyhledávací soubor...');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    lookupWorkbook = XLSX.read(e.target.result, {type: 'binary'});
+                    
+                    const sheetNames = lookupWorkbook.SheetNames;
+                    populateLookupSheetSelector(sheetNames);
+                    
+                    showStatus('lookupFileStatus', `✅ Načteno ${sheetNames.length} listů: ${sheetNames.join(', ')}`, 'success');
+                    document.getElementById('lookupSheetSelector').style.display = 'block';
+                    
+                } catch (error) {
+                    showStatus('lookupFileStatus', `❌ Chyba při načítání: ${error.message}`, 'error');
+                }
+            };
+            reader.readAsBinaryString(file);
+        }
+
+        function populateMainSheetSelector(sheetNames) {
+            const mainSelect = document.getElementById('mainSheet');
+            mainSelect.innerHTML = '<option value="">-- Vyberte list --</option>';
+            
+            sheetNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                mainSelect.appendChild(option);
+            });
+        }
+
+        function populateLookupSheetSelector(sheetNames) {
+            const lookupSelect = document.getElementById('lookupSheet');
+            lookupSelect.innerHTML = '<option value="">-- Vyberte list --</option>';
+            
+            sheetNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                lookupSelect.appendChild(option);
+            });
+        }
+
+        function updateMainSheetData() {
+            const sheetName = document.getElementById('mainSheet').value;
+            if (!sheetName || !mainWorkbook) return;
+            
+            try {
+                const worksheet = mainWorkbook.Sheets[sheetName];
+                mainSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                
+                if (mainSheetData.length > 0) {
+                    populateColumnSelect('mainColumn', Object.keys(mainSheetData[0]));
+                    populateColumnSelect('oldPriceColumn', ['', ...Object.keys(mainSheetData[0])]);
+                    showStatus('mainFileStatus', `✅ Hlavní list: ${mainSheetData.length} řádků`, 'success');
+                    checkReadyState();
+                }
+            } catch (error) {
+                showStatus('mainFileStatus', `❌ Chyba při načítání hlavního listu: ${error.message}`, 'error');
+            }
+        }
+
+        function updateLookupSheetData() {
+            const sheetName = document.getElementById('lookupSheet').value;
+            if (!sheetName || !lookupWorkbook) return;
+            
+            try {
+                const worksheet = lookupWorkbook.Sheets[sheetName];
+                lookupSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                
+                if (lookupSheetData.length > 0) {
+                    populateColumnSelect('lookupColumn', Object.keys(lookupSheetData[0]));
+                    populateColumnSelect('returnColumn', Object.keys(lookupSheetData[0]));
+                    showStatus('lookupFileStatus', `✅ Vyhledávací list: ${lookupSheetData.length} řádků`, 'success');
+                    document.getElementById('configSection').style.display = 'block';
+                    checkReadyState();
+                }
+            } catch (error) {
+                showStatus('lookupFileStatus', `❌ Chyba při načítání vyhledávacího listu: ${error.message}`, 'error');
+            }
+        }
+
+        function populateColumnSelect(selectId, columns) {
+            const select = document.getElementById(selectId);
+            
+            if (selectId === 'oldPriceColumn') {
+                select.innerHTML = '<option value="">-- Volitelné --</option>';
+                columns.slice(1).forEach(column => { // Skip empty string from array
+                    if (column) {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        select.appendChild(option);
+                    }
+                });
+            } else {
+                select.innerHTML = '<option value="">-- Vyberte sloupec --</option>';
+                columns.forEach(column => {
+                    const option = document.createElement('option');
+                    option.value = column;
+                    option.textContent = column;
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        function checkReadyState() {
+            const btn = document.getElementById('vlookupBtn');
+            btn.disabled = !(mainSheetData && lookupSheetData && 
+                           document.getElementById('mainColumn').value &&
+                           document.getElementById('lookupColumn').value &&
+                           document.getElementById('returnColumn').value);
+        }
+
+        function normalizeValue(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).trim().toLowerCase();
+        }
+
+        function formatValue(value) {
+            // Pokud je to číslo a má více než 2 desetinná místa, zaokrouhli
+            if (typeof value === 'number' && value % 1 !== 0) {
+                return Math.round(value);
+            }
+            return value;
+        }
+
+        function performVLookup() {
+            const mainColumn = document.getElementById('mainColumn').value;
+            const lookupColumn = document.getElementById('lookupColumn').value;
+            const returnColumn = document.getElementById('returnColumn').value;
+            const oldPriceColumn = document.getElementById('oldPriceColumn').value;
+            const newColumnName = document.getElementById('newColumnName').value || 'Nová cena';
+
+            if (!mainColumn || !lookupColumn || !returnColumn) {
+                alert('Prosím vyberte všechny povinné sloupce');
+                return;
+            }
+
+            // Vytvoř lookup mapu s normalizovanými klíči
+            const lookupMap = {};
+            let lookupCount = 0;
+            
+            lookupSheetData.forEach(row => {
+                const key = normalizeValue(row[lookupColumn]);
+                const value = row[returnColumn];
+                
+                if (key && value !== null && value !== undefined && value !== '') {
+                    lookupMap[key] = formatValue(value);
+                    lookupCount++;
+                }
+            });
+
+            showStatus('mainFileStatus', `🔍 Vytvořena lookup mapa s ${lookupCount} záznamy`, 'info');
+
+            // Proveď VLOOKUP
+            let foundCount = 0;
+            let notFoundCount = 0;
+            
+            resultData = mainSheetData.map(row => {
+                const lookupKey = normalizeValue(row[mainColumn]);
+                const foundValue = lookupMap[lookupKey];
+                
+                const newRow = { ...row };
+                
+                if (foundValue !== undefined) {
+                    foundCount++;
+                    newRow[newColumnName] = foundValue;
+                    
+                    // Přidej rozdíl, pokud je vybrán sloupec se starou cenou
+                    if (oldPriceColumn && row[oldPriceColumn] !== null && row[oldPriceColumn] !== undefined && row[oldPriceColumn] !== '') {
+                        const oldPrice = parseFloat(row[oldPriceColumn]) || 0;
+                        const newPrice = parseFloat(foundValue) || 0;
+                        const difference = newPrice - oldPrice;
+                        newRow[`${newColumnName} - Rozdíl`] = Math.round(difference);
+                    }
+                } else {
+                    notFoundCount++;
+                    newRow[newColumnName] = '#NENÍ_K_DISPOZICI';
+                    if (oldPriceColumn) {
+                        newRow[`${newColumnName} - Rozdíl`] = '#NENÍ_K_DISPOZICI';
+                    }
+                }
+                
+                return newRow;
+            });
+
+            showStatus('mainFileStatus', 
+                `✅ VLOOKUP dokončen: ${foundCount} nalezeno, ${notFoundCount} nenalezeno`, 
+                foundCount > 0 ? 'success' : 'warning'
+            );
+
+            displayResults();
+        }
+
+        function displayResults() {
+            const resultsDiv = document.getElementById('results');
+            const newColumnName = document.getElementById('newColumnName').value || 'Nová cena';
+            const differenceColumnName = `${newColumnName} - Rozdíl`;
+            
+            const matchCount = resultData.filter(row => 
+                row[newColumnName] !== '#NENÍ_K_DISPOZICI'
+            ).length;
+            
+            const totalCount = resultData.length;
+            
+            let html = `
+                <h3>📊 Výsledky VLOOKUP</h3>
+                <div class="status info">
+                    ✅ Nalezeno: ${matchCount} / ${totalCount} záznamů (${((matchCount/totalCount)*100).toFixed(1)}%)
+                </div>
+                <button onclick="downloadExcel()">📥 Stáhnout Excel (.xlsx)</button>
+                <button onclick="downloadCSV()">📥 Stáhnout CSV</button>
+                <table>
+                    <thead>
+                        <tr>
+            `;
+
+            // Hlavičky tabulky
+            const headers = Object.keys(resultData[0]);
+            headers.forEach(header => {
+                html += `<th>${header}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // Řádky tabulky (zobraz jen prvních 50)
+            resultData.slice(0, 50).forEach(row => {
+                html += '<tr>';
+                headers.forEach(header => {
+                    const value = row[header];
+                    const isNotFound = value === '#NENÍ_K_DISPOZICI';
+                    const isNewColumn = header === newColumnName;
+                    const isDifferenceColumn = header === differenceColumnName;
+                    
+                    let className = '';
+                    if (isNotFound) className = 'not-found';
+                    else if (isNewColumn || isDifferenceColumn) className = 'highlight';
+                    
+                    // Formátuj hodnotu pro zobrazení
+                    let displayValue = value || '';
+                    if (typeof value === 'number' && value % 1 !== 0) {
+                        displayValue = Math.round(value);
+                    }
+                    
+                    // Speciální formátování pro rozdíl
+                    if (isDifferenceColumn && typeof value === 'number') {
+                        displayValue = value > 0 ? `+${value}` : value;
+                    }
+                    
+                    html += `<td class="${className}">${displayValue}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function downloadExcel() {
+            if (!resultData) return;
+
+            const ws = XLSX.utils.json_to_sheet(resultData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Výsledky");
+            
+            XLSX.writeFile(wb, 'vlookup_vysledky.xlsx');
+        }
+
+        function downloadCSV() {
+            if (!resultData) return;
+
+            const ws = XLSX.utils.json_to_sheet(resultData);
+            const csv = XLSX.utils.sheet_to_csv(ws, {FS: ';'});
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'vlookup_vysledky.csv';
+            link.click();
+        }
+
+        // Event listenery pro checkování stavu
+        document.getElementById('mainColumn').addEventListener('change', checkReadyState);
+        document.getElementById('lookupColumn').addEventListener('change', checkReadyState);
+        document.getElementById('returnColumn').addEventListener('change', checkReadyState);
+    </script>
+</body>
+</html>
