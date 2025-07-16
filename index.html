@@ -134,6 +134,93 @@
             margin-bottom: 5px;
             font-weight: bold;
         }
+        
+        /* Multi-select styly */
+        .multi-sheet-selector {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: white;
+            margin: 10px 0;
+        }
+        .sheet-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .sheet-checkbox:last-child {
+            border-bottom: none;
+        }
+        .sheet-checkbox input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .sheet-checkbox:hover {
+            background: #f8f9fa;
+        }
+        .select-all-btn {
+            background: #28a745;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px;
+        }
+        .select-all-btn:hover {
+            background: #218838;
+        }
+        .clear-all-btn {
+            background: #dc3545;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px;
+        }
+        .clear-all-btn:hover {
+            background: #c82333;
+        }
+        .sheet-mapping {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin: 10px 0;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        .sheet-mapping h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .mapping-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .mapping-row > div {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        .mapping-row label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .mapping-row select {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 180px; /* Fixní šířka pro všechny selecty */
+        }
     </style>
 </head>
 <body>
@@ -142,32 +229,30 @@
         
         <div class="upload-section">
             <h3>📁 Nová objednávka (.xlsx)</h3>
-            <input type="file" id="mainFile" accept=".xlsx,.xls" onchange="handleMainFile(event)">
+            <input type="file" id="mainFile" accept=".xlsx,.xls">
             <div id="mainFileStatus"></div>
             
             <div id="mainSheetSelector" style="display: none;">
                 <div class="sheet-selector">
                     <label><strong>Hlavní záložka:</strong></label>
-                    <select id="mainSheet" onchange="updateMainSheetData()"></select>
-                    <label style="margin-left: 15px;">
-                        <input type="checkbox" id="mainIncludeHeaders" onchange="updateMainSheetData()"> Nejsou nadpisy
-                    </label>
+                    <select id="mainSheet"></select>
                 </div>
             </div>
         </div>
 
         <div class="upload-section">
             <h3>📁 Ceník dodavatele (.xlsx)</h3>
-            <input type="file" id="lookupFile" accept=".xlsx,.xls" onchange="handleLookupFile(event)">
+            <input type="file" id="lookupFile" accept=".xlsx,.xls">
             <div id="lookupFileStatus"></div>
             
             <div id="lookupSheetSelector" style="display: none;">
                 <div class="sheet-selector">
-                    <label><strong>Záložka s cenami (MOC):</strong></label>
-                    <select id="lookupSheet" onchange="updateLookupSheetData()"></select>
-                    <label style="margin-left: 15px;">
-                        <input type="checkbox" id="lookupIncludeHeaders" onchange="updateLookupSheetData()"> Nejsou nadpisy
-                    </label>
+                    <label><strong>Záložky s cenami (MOC) - vyberte více:</strong></label>
+                    <div>
+                        <button class="select-all-btn" id="selectAllBtn">✓ Vybrat vše</button>
+                        <button class="clear-all-btn" id="clearAllBtn">✗ Zrušit vše</button>
+                    </div>
+                    <div class="multi-sheet-selector" id="multiSheetSelector"></div>
                 </div>
             </div>
         </div>
@@ -180,44 +265,62 @@
                     <select id="mainColumn"></select>
                 </div>
                 <div>
-                    <label>Kód v ceníku:</label>
-                    <select id="lookupColumn"></select>
-                </div>
-                <div>
-                    <label>MOC v ceníku dodavatele:</label>
-                    <select id="returnColumn"></select>
-                </div>
-            </div>
-            <div class="column-selector">
-                <div>
                     <label>Naše MOC:</label>
                     <select id="oldPriceColumn">
                         <option value="">-- Volitelné --</option>
                     </select>
                 </div>
+                <div>
+                    <label>&nbsp;</label>
+                    <label style="font-size: 14px; font-weight: normal; cursor: pointer; margin-top: 8px;">
+                        <input type="checkbox" id="mainIncludeHeaders"> Nejsou nadpisy
+                    </label>
+                </div>
             </div>
-            <div>
+            
+            <div id="sheetMappings" style="margin-top: 20px;">
+                <h4>📋 Vybrání sloupců v záložkách ceníku:</h4>
+            </div>
+            
+            <div style="margin-top: 20px;">
                 <label><strong>Název nového sloupce:</strong></label>
                 <input type="text" id="newColumnName" value="Nová cena" style="margin-left: 10px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
             </div>
-            <button onclick="performVLookup()" id="vlookupBtn" disabled>🔍 Provést VLOOKUP</button>
+            <button id="vlookupBtn" disabled>🔍 Provést VLOOKUP</button>
         </div>
 
         <div class="results" id="results"></div>
     </div>
 
     <script>
+        // Globální proměnné
         let mainWorkbook = null;
         let lookupWorkbook = null;
         let mainSheetData = null;
-        let lookupSheetData = null;
+        let selectedSheets = new Set();
+        let sheetColumnMappings = {};
+        let sheetHeaderSettings = {}; // Pro uložení nastavení hlaviček pro každou záložku
         let resultData = null;
 
+        // Utility funkce
         function showStatus(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+            element.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
         }
 
+        function normalizeValue(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).trim().toLowerCase();
+        }
+
+        function formatValue(value) {
+            if (typeof value === 'number' && value % 1 !== 0) {
+                return Math.round(value);
+            }
+            return value;
+        }
+
+        // Hlavní file handlery
         function handleMainFile(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -232,11 +335,11 @@
                     const sheetNames = mainWorkbook.SheetNames;
                     populateMainSheetSelector(sheetNames);
                     
-                    showStatus('mainFileStatus', `✅ Načteno ${sheetNames.length} listů: ${sheetNames.join(', ')}`, 'success');
+                    showStatus('mainFileStatus', '✅ Načteno ' + sheetNames.length + ' listů: ' + sheetNames.join(', '), 'success');
                     document.getElementById('mainSheetSelector').style.display = 'block';
                     
                 } catch (error) {
-                    showStatus('mainFileStatus', `❌ Chyba při načítání: ${error.message}`, 'error');
+                    showStatus('mainFileStatus', '❌ Chyba při načítání: ' + error.message, 'error');
                 }
             };
             reader.readAsBinaryString(file);
@@ -256,21 +359,22 @@
                     const sheetNames = lookupWorkbook.SheetNames;
                     populateLookupSheetSelector(sheetNames);
                     
-                    showStatus('lookupFileStatus', `✅ Načteno ${sheetNames.length} listů: ${sheetNames.join(', ')}`, 'success');
+                    showStatus('lookupFileStatus', '✅ Načteno ' + sheetNames.length + ' listů: ' + sheetNames.join(', '), 'success');
                     document.getElementById('lookupSheetSelector').style.display = 'block';
                     
                 } catch (error) {
-                    showStatus('lookupFileStatus', `❌ Chyba při načítání: ${error.message}`, 'error');
+                    showStatus('lookupFileStatus', '❌ Chyba při načítání: ' + error.message, 'error');
                 }
             };
             reader.readAsBinaryString(file);
         }
 
+        // Sheet selektory
         function populateMainSheetSelector(sheetNames) {
             const mainSelect = document.getElementById('mainSheet');
             mainSelect.innerHTML = '<option value="">-- Vyberte list --</option>';
             
-            sheetNames.forEach(name => {
+            sheetNames.forEach(function(name) {
                 const option = document.createElement('option');
                 option.value = name;
                 option.textContent = name;
@@ -279,17 +383,33 @@
         }
 
         function populateLookupSheetSelector(sheetNames) {
-            const lookupSelect = document.getElementById('lookupSheet');
-            lookupSelect.innerHTML = '<option value="">-- Vyberte list --</option>';
+            const container = document.getElementById('multiSheetSelector');
+            container.innerHTML = '';
+            selectedSheets.clear();
+            sheetColumnMappings = {};
+            sheetHeaderSettings = {};
             
-            sheetNames.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                lookupSelect.appendChild(option);
+            sheetNames.forEach(function(name) {
+                const div = document.createElement('div');
+                div.className = 'sheet-checkbox';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = 'sheet_' + name.replace(/[^a-zA-Z0-9]/g, '_');
+                checkbox.value = name;
+                
+                const label = document.createElement('label');
+                label.htmlFor = checkbox.id;
+                label.textContent = name;
+                label.style.cursor = 'pointer';
+                
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                container.appendChild(div);
             });
         }
 
+        // Sheet data loading
         function updateMainSheetData() {
             const sheetName = document.getElementById('mainSheet').value;
             const includeHeaders = document.getElementById('mainIncludeHeaders').checked;
@@ -302,18 +422,20 @@
                     const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
                     if (rawData.length > 0) {
                         const headers = [];
-                        const maxCols = Math.max(...rawData.map(row => row.length));
+                        const maxCols = Math.max(...rawData.map(function(row) { return row.length; }));
                         for (let i = 0; i < maxCols; i++) {
-                            headers.push(`Sloupec_${i + 1}`);
+                            headers.push('Sloupec_' + (i + 1));
                         }
                         
-                        mainSheetData = rawData.map(row => {
+                        mainSheetData = rawData.map(function(row) {
                             const obj = {};
-                            headers.forEach((header, index) => {
+                            headers.forEach(function(header, index) {
                                 obj[header] = row[index] || '';
                             });
                             return obj;
-                        }).filter(row => Object.values(row).some(val => val !== ''));
+                        }).filter(function(row) {
+                            return Object.values(row).some(function(val) { return val !== ''; });
+                        });
                     }
                 } else {
                     const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
@@ -321,7 +443,7 @@
                     let headerRowIndex = -1;
                     for (let i = 0; i < Math.min(rawData.length, 20); i++) {
                         const row = rawData[i];
-                        const nonEmptyCount = row.filter(cell => cell && cell !== '').length;
+                        const nonEmptyCount = row.filter(function(cell) { return cell && cell !== ''; }).length;
                         if (nonEmptyCount >= 2) {
                             headerRowIndex = i;
                             break;
@@ -334,92 +456,32 @@
                         const headers = rawData[headerRowIndex];
                         const dataRows = rawData.slice(headerRowIndex + 1);
                         
-                        mainSheetData = dataRows.map(row => {
+                        mainSheetData = dataRows.map(function(row) {
                             const obj = {};
-                            headers.forEach((header, index) => {
-                                const key = header || `_EMPTY_${index}`;
+                            headers.forEach(function(header, index) {
+                                const key = header || 'EMPTY_' + (index + 1);
                                 obj[key] = row[index] || '';
                             });
                             return obj;
-                        }).filter(row => Object.values(row).some(val => val !== ''));
+                        }).filter(function(row) {
+                            return Object.values(row).some(function(val) { return val !== ''; });
+                        });
                     }
                 }
                 
                 if (mainSheetData.length > 0) {
                     populateColumnSelect('mainColumn', Object.keys(mainSheetData[0]));
-                    populateColumnSelect('oldPriceColumn', ['', ...Object.keys(mainSheetData[0])]);
-                    showStatus('mainFileStatus', `✅ Hlavní list: ${mainSheetData.length} řádků`, 'success');
+                    populateColumnSelect('oldPriceColumn', [''].concat(Object.keys(mainSheetData[0])));
+                    showStatus('mainFileStatus', '✅ Hlavní list: ' + mainSheetData.length + ' řádků', 'success');
+                    
+                    if (selectedSheets.size > 0) {
+                        updateSheetMappings();
+                    }
+                    
                     checkReadyState();
                 }
             } catch (error) {
-                showStatus('mainFileStatus', `❌ Chyba při načítání hlavního listu: ${error.message}`, 'error');
-            }
-        }
-
-        function updateLookupSheetData() {
-            const sheetName = document.getElementById('lookupSheet').value;
-            const includeHeaders = document.getElementById('lookupIncludeHeaders').checked;
-            if (!sheetName || !lookupWorkbook) return;
-            
-            try {
-                const worksheet = lookupWorkbook.Sheets[sheetName];
-                
-                if (includeHeaders) {
-                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
-                    if (rawData.length > 0) {
-                        const headers = [];
-                        const maxCols = Math.max(...rawData.map(row => row.length));
-                        for (let i = 0; i < maxCols; i++) {
-                            headers.push(`Sloupec_${i + 1}`);
-                        }
-                        
-                        lookupSheetData = rawData.map(row => {
-                            const obj = {};
-                            headers.forEach((header, index) => {
-                                obj[header] = row[index] || '';
-                            });
-                            return obj;
-                        }).filter(row => Object.values(row).some(val => val !== ''));
-                    }
-                } else {
-                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
-                    
-                    let headerRowIndex = -1;
-                    for (let i = 0; i < Math.min(rawData.length, 20); i++) {
-                        const row = rawData[i];
-                        const nonEmptyCount = row.filter(cell => cell && cell !== '').length;
-                        if (nonEmptyCount >= 2) {
-                            headerRowIndex = i;
-                            break;
-                        }
-                    }
-                    
-                    if (headerRowIndex === -1) {
-                        lookupSheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
-                    } else {
-                        const headers = rawData[headerRowIndex];
-                        const dataRows = rawData.slice(headerRowIndex + 1);
-                        
-                        lookupSheetData = dataRows.map(row => {
-                            const obj = {};
-                            headers.forEach((header, index) => {
-                                const key = header || `_EMPTY_${index}`;
-                                obj[key] = row[index] || '';
-                            });
-                            return obj;
-                        }).filter(row => Object.values(row).some(val => val !== ''));
-                    }
-                }
-                
-                if (lookupSheetData.length > 0) {
-                    populateColumnSelect('lookupColumn', Object.keys(lookupSheetData[0]));
-                    populateColumnSelect('returnColumn', Object.keys(lookupSheetData[0]));
-                    showStatus('lookupFileStatus', `✅ Vyhledávací list: ${lookupSheetData.length} řádků`, 'success');
-                    document.getElementById('configSection').style.display = 'block';
-                    checkReadyState();
-                }
-            } catch (error) {
-                showStatus('lookupFileStatus', `❌ Chyba při načítání vyhledávacího listu: ${error.message}`, 'error');
+                showStatus('mainFileStatus', '❌ Chyba při načítání hlavního listu: ' + error.message, 'error');
             }
         }
 
@@ -428,7 +490,7 @@
             
             if (selectId === 'oldPriceColumn') {
                 select.innerHTML = '<option value="">-- Volitelné --</option>';
-                columns.slice(1).forEach(column => { // Skip empty string from array
+                columns.slice(1).forEach(function(column) {
                     if (column) {
                         const option = document.createElement('option');
                         option.value = column;
@@ -438,7 +500,7 @@
                 });
             } else {
                 select.innerHTML = '<option value="">-- Vyberte sloupec --</option>';
-                columns.forEach(column => {
+                columns.forEach(function(column) {
                     const option = document.createElement('option');
                     option.value = column;
                     option.textContent = column;
@@ -447,155 +509,487 @@
             }
         }
 
-        function checkReadyState() {
-            const btn = document.getElementById('vlookupBtn');
-            btn.disabled = !(mainSheetData && lookupSheetData && 
-                           document.getElementById('mainColumn').value &&
-                           document.getElementById('lookupColumn').value &&
-                           document.getElementById('returnColumn').value);
+        // Sheet selection handling
+        function selectAllSheets() {
+            const checkboxes = document.querySelectorAll('#multiSheetSelector input[type="checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = true;
+                selectedSheets.add(checkbox.value);
+            });
+            updateSheetMappings();
+            checkReadyState();
         }
 
-        function normalizeValue(value) {
-            if (value === null || value === undefined) return '';
-            return String(value).trim().toLowerCase();
+        function clearAllSheets() {
+            const checkboxes = document.querySelectorAll('#multiSheetSelector input[type="checkbox"]');
+            checkboxes.forEach(function(checkbox) {
+                checkbox.checked = false;
+            });
+            selectedSheets.clear();
+            sheetColumnMappings = {};
+            sheetHeaderSettings = {};
+            document.getElementById('configSection').style.display = 'none';
+            showStatus('lookupFileStatus', '📁 Žádné záložky nevybrány', 'info');
+            checkReadyState();
         }
 
-        function formatValue(value) {
-            // Pokud je to číslo a má více než 2 desetinná místa, zaokrouhli
-            if (typeof value === 'number' && value % 1 !== 0) {
-                return Math.round(value);
+        function onSheetSelectionChange(sheetName, isChecked) {
+            if (isChecked) {
+                selectedSheets.add(sheetName);
+            } else {
+                selectedSheets.delete(sheetName);
+                delete sheetColumnMappings[sheetName];
+                delete sheetHeaderSettings[sheetName];
             }
-            return value;
+            updateSheetMappings();
+            checkReadyState();
         }
 
-        function performVLookup() {
-            const mainColumn = document.getElementById('mainColumn').value;
-            const lookupColumn = document.getElementById('lookupColumn').value;
-            const returnColumn = document.getElementById('returnColumn').value;
-            const oldPriceColumn = document.getElementById('oldPriceColumn').value;
-            const newColumnName = document.getElementById('newColumnName').value || 'Nová cena';
-
-            if (!mainColumn || !lookupColumn || !returnColumn) {
-                alert('Prosím vyberte všechny povinné sloupce');
+        // Sheet mappings
+        function updateSheetMappings() {
+            if (selectedSheets.size === 0) {
+                document.getElementById('configSection').style.display = 'none';
+                showStatus('lookupFileStatus', '📁 Žádné záložky nevybrány', 'info');
                 return;
             }
 
-            // Vytvoř lookup mapu s normalizovanými klíči
+            document.getElementById('configSection').style.display = 'block';
+            const mappingsContainer = document.getElementById('sheetMappings');
+            
+            // Spočítej celkový počet řádků
+            let totalRows = 0;
+            
+            selectedSheets.forEach(function(sheetName) {
+                const worksheet = lookupWorkbook.Sheets[sheetName];
+                const includeHeaders = sheetHeaderSettings[sheetName] || false;
+                try {
+                    if (includeHeaders) {
+                        const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                        totalRows += rawData.filter(function(row) {
+                            return row.some(function(val) { return val !== ''; });
+                        }).length;
+                    } else {
+                        const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                        
+                        let headerRowIndex = -1;
+                        for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                            const row = rawData[i];
+                            const nonEmptyCount = row.filter(function(cell) { return cell && cell !== ''; }).length;
+                            if (nonEmptyCount >= 2) {
+                                headerRowIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        if (headerRowIndex === -1) {
+                            const sheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                            totalRows += sheetData.length;
+                        } else {
+                            const dataRows = rawData.slice(headerRowIndex + 1);
+                            totalRows += dataRows.filter(function(row) {
+                                return row.some(function(val) { return val !== ''; });
+                            }).length;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Chyba při počítání řádků v ' + sheetName + ':', error);
+                }
+            });
+            
+            let html = '<h4>📋 Vybrání sloupců v záložkách ceníku:</h4>';
+            
+            selectedSheets.forEach(function(sheetName) {
+                const sheetColumns = getSheetColumns(sheetName);
+                if (sheetColumns.length === 0) return;
+                
+                const idSafeSheetName = sheetName.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                html += '<div class="sheet-mapping">';
+                html += '<h5>📄 ' + sheetName + '</h5>';
+                html += '<div class="mapping-row">';
+                html += '<div>';
+                html += '<label>Kód v ceníku:</label>';
+                html += '<select id="lookupColumn_' + idSafeSheetName + '">';
+                html += '<option value="">-- Vyberte sloupec --</option>';
+                
+                sheetColumns.forEach(function(column) {
+                    const selected = sheetColumnMappings[sheetName] && sheetColumnMappings[sheetName].lookupColumn === column ? 'selected' : '';
+                    // Zobraz EMPTY pro EMPTY_ sloupce, jinak normální název
+                    const columnStr = String(column || '');
+                    const displayColumn = columnStr.startsWith('EMPTY_') ? 'EMPTY' : column;
+                    html += '<option value="' + column + '" ' + selected + '>' + displayColumn + '</option>';
+                });
+                
+                html += '</select>';
+                html += '</div>';
+                html += '<div>';
+                html += '<label>MOC v ceníku:</label>';
+                html += '<select id="returnColumn_' + idSafeSheetName + '">';
+                html += '<option value="">-- Vyberte sloupec --</option>';
+                
+                sheetColumns.forEach(function(column) {
+                    const selected = sheetColumnMappings[sheetName] && sheetColumnMappings[sheetName].returnColumn === column ? 'selected' : '';
+                    // Zobraz EMPTY pro EMPTY_ sloupce, jinak normální název
+                    const columnStr = String(column || '');
+                    const displayColumn = columnStr.startsWith('EMPTY_') ? 'EMPTY' : column;
+                    html += '<option value="' + column + '" ' + selected + '>' + displayColumn + '</option>';
+                });
+                
+                html += '</select>';
+                html += '</div>';
+                html += '<div>';
+                html += '<label style="margin-bottom: 5px;">&nbsp;</label>';
+                const headerChecked = sheetHeaderSettings[sheetName] ? 'checked' : '';
+                html += '<label style="font-size: 12px; font-weight: normal; cursor: pointer;">';
+                html += '<input type="checkbox" id="headerCheck_' + idSafeSheetName + '" ' + headerChecked + '> Nejsou nadpisy';
+                html += '</label>';
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            
+            mappingsContainer.innerHTML = html;
+            
+            // Přidej event listenery pro nové selecty a checkboxy
+            selectedSheets.forEach(function(sheetName) {
+                const idSafeSheetName = sheetName.replace(/[^a-zA-Z0-9]/g, '_');
+                const lookupSelect = document.getElementById('lookupColumn_' + idSafeSheetName);
+                const returnSelect = document.getElementById('returnColumn_' + idSafeSheetName);
+                const headerCheck = document.getElementById('headerCheck_' + idSafeSheetName);
+                
+                if (lookupSelect) {
+                    lookupSelect.addEventListener('change', function() {
+                        updateSheetMapping(sheetName, 'lookupColumn', this.value);
+                    });
+                }
+                
+                if (returnSelect) {
+                    returnSelect.addEventListener('change', function() {
+                        updateSheetMapping(sheetName, 'returnColumn', this.value);
+                    });
+                }
+                
+                if (headerCheck) {
+                    headerCheck.addEventListener('change', function() {
+                        sheetHeaderSettings[sheetName] = this.checked;
+                        // Resetuj mapování pro tuto záložku když se změní nastavení hlaviček
+                        if (sheetColumnMappings[sheetName]) {
+                            sheetColumnMappings[sheetName] = {};
+                        }
+                        updateSheetMappings();
+                    });
+                }
+            });
+            
+            showStatus('lookupFileStatus', '✅ Vyhledávací listy: ' + totalRows + ' řádků z ' + selectedSheets.size + ' záložek', 'success');
+        }
+
+        function getSheetColumns(sheetName) {
+            if (!lookupWorkbook || !lookupWorkbook.Sheets[sheetName]) return [];
+            
+            const includeHeaders = sheetHeaderSettings[sheetName] || false;
+            const worksheet = lookupWorkbook.Sheets[sheetName];
+            
+            try {
+                if (includeHeaders) {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    if (rawData.length > 0) {
+                        const maxCols = Math.max(...rawData.map(function(row) { return row.length; }));
+                        const headers = [];
+                        for (let i = 0; i < maxCols; i++) {
+                            headers.push('Sloupec_' + (i + 1));
+                        }
+                        return headers;
+                    }
+                } else {
+                    const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                    
+                    let headerRowIndex = -1;
+                    for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                        const row = rawData[i];
+                        const nonEmptyCount = row.filter(function(cell) { return cell && cell !== ''; }).length;
+                        if (nonEmptyCount >= 2) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (headerRowIndex === -1) {
+                        const sampleData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                        return sampleData.length > 0 ? Object.keys(sampleData[0]) : [];
+                    } else {
+                        const headers = rawData[headerRowIndex];
+                        // Zachovej i prázdné sloupce a přiřaď jim EMPTY_index jako klíč
+                        const processedHeaders = [];
+                        headers.forEach(function(header, index) {
+                            if (header && header !== '') {
+                                processedHeaders.push(header);
+                            } else {
+                                processedHeaders.push('EMPTY_' + (index + 1));
+                            }
+                        });
+                        return processedHeaders;
+                    }
+                }
+            } catch (error) {
+                console.error('Chyba při načítání sloupců z ' + sheetName + ':', error);
+                return [];
+            }
+            
+            return [];
+        }
+
+        function updateSheetMapping(sheetName, mappingType, value) {
+            if (!sheetColumnMappings[sheetName]) {
+                sheetColumnMappings[sheetName] = {};
+            }
+            sheetColumnMappings[sheetName][mappingType] = value;
+            checkReadyState();
+        }
+
+        // Ready state check
+        function checkReadyState() {
+            const btn = document.getElementById('vlookupBtn');
+            const mainColumnSelected = document.getElementById('mainColumn').value;
+            
+            let allSheetsMapped = true;
+            selectedSheets.forEach(function(sheetName) {
+                const mapping = sheetColumnMappings[sheetName];
+                if (!mapping || !mapping.lookupColumn || !mapping.returnColumn) {
+                    allSheetsMapped = false;
+                }
+            });
+            
+            btn.disabled = !(mainSheetData && selectedSheets.size > 0 && mainColumnSelected && allSheetsMapped);
+        }
+
+        // VLOOKUP execution
+        function performVLookup() {
+            const mainColumn = document.getElementById('mainColumn').value;
+            const oldPriceColumn = document.getElementById('oldPriceColumn').value;
+            const newColumnName = document.getElementById('newColumnName').value || 'Nová cena';
+
+            if (!mainColumn) {
+                alert('Prosím vyberte sloupec s kódem v hlavní objednávce');
+                return;
+            }
+
             const lookupMap = {};
+            const sourceMap = {};
             let lookupCount = 0;
             
-            lookupSheetData.forEach(row => {
-                const key = normalizeValue(row[lookupColumn]);
-                const value = row[returnColumn];
+            selectedSheets.forEach(function(sheetName) {
+                const mapping = sheetColumnMappings[sheetName];
+                const includeHeaders = sheetHeaderSettings[sheetName] || false;
+                if (!mapping || !mapping.lookupColumn || !mapping.returnColumn) {
+                    return;
+                }
                 
-                if (key && value !== null && value !== undefined && value !== '') {
-                    lookupMap[key] = formatValue(value);
-                    lookupCount++;
+                const worksheet = lookupWorkbook.Sheets[sheetName];
+                let sheetData = [];
+                
+                try {
+                    if (includeHeaders) {
+                        const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                        if (rawData.length > 0) {
+                            const headers = [];
+                            const maxCols = Math.max(...rawData.map(function(row) { return row.length; }));
+                            for (let i = 0; i < maxCols; i++) {
+                                headers.push('Sloupec_' + (i + 1));
+                            }
+                            
+                            sheetData = rawData.map(function(row) {
+                                const obj = {};
+                                headers.forEach(function(header, index) {
+                                    obj[header] = row[index] || '';
+                                });
+                                return obj;
+                            }).filter(function(row) {
+                                return Object.values(row).some(function(val) { return val !== ''; });
+                            });
+                        }
+                    } else {
+                        const rawData = XLSX.utils.sheet_to_json(worksheet, {defval: '', header: 1});
+                        
+                        let headerRowIndex = -1;
+                        for (let i = 0; i < Math.min(rawData.length, 20); i++) {
+                            const row = rawData[i];
+                            const nonEmptyCount = row.filter(function(cell) { return cell && cell !== ''; }).length;
+                            if (nonEmptyCount >= 2) {
+                                headerRowIndex = i;
+                                break;
+                            }
+                        }
+                        
+                        if (headerRowIndex === -1) {
+                            sheetData = XLSX.utils.sheet_to_json(worksheet, {defval: ''});
+                        } else {
+                            const headers = rawData[headerRowIndex];
+                            const dataRows = rawData.slice(headerRowIndex + 1);
+                            
+                            sheetData = dataRows.map(function(row) {
+                                const obj = {};
+                                headers.forEach(function(header, index) {
+                                    const key = header || 'EMPTY_' + (index + 1);
+                                    obj[key] = row[index] || '';
+                                });
+                                return obj;
+                            }).filter(function(row) {
+                                return Object.values(row).some(function(val) { return val !== ''; });
+                            });
+                        }
+                    }
+                    
+                    sheetData.forEach(function(row) {
+                        const key = normalizeValue(row[mapping.lookupColumn]);
+                        const value = row[mapping.returnColumn];
+                        
+                        if (key && value !== null && value !== undefined && value !== '') {
+                            if (!lookupMap[key]) {
+                                lookupMap[key] = formatValue(value);
+                                sourceMap[key] = sheetName;
+                                lookupCount++;
+                            }
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('Chyba při zpracování záložky ' + sheetName + ':', error);
                 }
             });
 
-            showStatus('mainFileStatus', `🔍 Vytvořena lookup mapa s ${lookupCount} záznamy`, 'info');
+            showStatus('mainFileStatus', '🔍 Vytvořena lookup mapa s ' + lookupCount + ' záznamy ze ' + selectedSheets.size + ' záložek', 'info');
 
-            // Proveď VLOOKUP
             let foundCount = 0;
             let notFoundCount = 0;
+            const sourceStats = {};
             
-            resultData = mainSheetData.map(row => {
+            resultData = mainSheetData.map(function(row) {
                 const lookupKey = normalizeValue(row[mainColumn]);
                 const foundValue = lookupMap[lookupKey];
+                const source = sourceMap[lookupKey];
                 
-                const newRow = { ...row };
+                const newRow = Object.assign({}, row);
                 
                 if (foundValue !== undefined) {
                     foundCount++;
                     newRow[newColumnName] = foundValue;
+                    newRow[newColumnName + ' - Zdroj'] = source;
                     
-                    // Přidej rozdíl, pokud je vybrán sloupec se starou cenou
+                    sourceStats[source] = (sourceStats[source] || 0) + 1;
+                    
                     if (oldPriceColumn && row[oldPriceColumn] !== null && row[oldPriceColumn] !== undefined && row[oldPriceColumn] !== '') {
                         const oldPrice = parseFloat(row[oldPriceColumn]) || 0;
                         const newPrice = parseFloat(foundValue) || 0;
                         const difference = newPrice - oldPrice;
-                        newRow[`${newColumnName} - Rozdíl`] = Math.round(difference);
+                        newRow[newColumnName + ' - Rozdíl'] = Math.round(difference);
                     }
                 } else {
                     notFoundCount++;
                     newRow[newColumnName] = '#NENÍ_K_DISPOZICI';
+                    newRow[newColumnName + ' - Zdroj'] = '#NENÍ_K_DISPOZICI';
                     if (oldPriceColumn) {
-                        newRow[`${newColumnName} - Rozdíl`] = '#NENÍ_K_DISPOZICI';
+                        newRow[newColumnName + ' - Rozdíl'] = '#NENÍ_K_DISPOZICI';
                     }
                 }
                 
                 return newRow;
             });
 
+            const sourceStatsText = Object.keys(sourceStats).map(function(source) {
+                return source + ': ' + sourceStats[source];
+            }).join(', ');
+
             showStatus('mainFileStatus', 
-                `✅ VLOOKUP dokončen: ${foundCount} nalezeno, ${notFoundCount} nenalezeno`, 
+                '✅ VLOOKUP dokončen: ' + foundCount + ' nalezeno, ' + notFoundCount + ' nenalezeno<br>' +
+                '📊 Zdroje: ' + sourceStatsText, 
                 foundCount > 0 ? 'success' : 'warning'
             );
 
             displayResults();
         }
 
+        // Results display
         function displayResults() {
             const resultsDiv = document.getElementById('results');
             const newColumnName = document.getElementById('newColumnName').value || 'Nová cena';
-            const differenceColumnName = `${newColumnName} - Rozdíl`;
+            const differenceColumnName = newColumnName + ' - Rozdíl';
+            const sourceColumnName = newColumnName + ' - Zdroj';
             
-            const matchCount = resultData.filter(row => 
-                row[newColumnName] !== '#NENÍ_K_DISPOZICI'
-            ).length;
+            const matchCount = resultData.filter(function(row) {
+                return row[newColumnName] !== '#NENÍ_K_DISPOZICI';
+            }).length;
             
             const totalCount = resultData.length;
             
-            let html = `
-                <h3>📊 Výsledky VLOOKUP</h3>
-                <div class="status info">
-                    ✅ Nalezeno: ${matchCount} / ${totalCount} záznamů (${((matchCount/totalCount)*100).toFixed(1)}%)
-                </div>
-                <button onclick="downloadExcel()">📥 Stáhnout Excel (.xlsx)</button>
-                <button onclick="downloadCSV()">📥 Stáhnout CSV</button>
-                <table>
-                    <thead>
-                        <tr>
-            `;
+            let html = '<h3>📊 Výsledky VLOOKUP</h3>';
+            html += '<div class="status info">';
+            html += '✅ Nalezeno: ' + matchCount + ' / ' + totalCount + ' záznamů (' + ((matchCount/totalCount)*100).toFixed(1) + '%)';
+            html += '</div>';
+            html += '<button onclick="downloadExcel()">📥 Stáhnout Excel (.xlsx)</button>';
+            html += '<button onclick="downloadCSV()">📥 Stáhnout CSV</button>';
+            html += '<table>';
+            html += '<thead><tr>';
 
-            // Hlavičky tabulky
-            const headers = Object.keys(resultData[0]);
-            headers.forEach(header => {
-                html += `<th>${header}</th>`;
+            // Vytvoř hlavičky v požadovaném pořadí
+            const allKeys = Object.keys(resultData[0]);
+            const orderedHeaders = [];
+            
+            // Nejprve všechny původní sloupce
+            allKeys.forEach(function(key) {
+                if (key !== sourceColumnName && key !== newColumnName && key !== differenceColumnName) {
+                    orderedHeaders.push(key);
+                }
+            });
+            
+            // Pak nové sloupce v požadovaném pořadí: Zdroj → Cena → Rozdíl
+            if (allKeys.includes(sourceColumnName)) {
+                orderedHeaders.push(sourceColumnName);
+            }
+            if (allKeys.includes(newColumnName)) {
+                orderedHeaders.push(newColumnName);
+            }
+            if (allKeys.includes(differenceColumnName)) {
+                orderedHeaders.push(differenceColumnName);
+            }
+
+            orderedHeaders.forEach(function(header) {
+                html += '<th>' + header + '</th>';
             });
             html += '</tr></thead><tbody>';
 
-            // Řádky tabulky (zobraz jen prvních 50)
-            resultData.slice(0, 50).forEach(row => {
+            resultData.slice(0, 50).forEach(function(row) {
                 html += '<tr>';
-                headers.forEach(header => {
+                orderedHeaders.forEach(function(header) {
                     const value = row[header];
                     const isNotFound = value === '#NENÍ_K_DISPOZICI';
+                    const isSourceColumn = header === sourceColumnName;
                     const isNewColumn = header === newColumnName;
                     const isDifferenceColumn = header === differenceColumnName;
                     
                     let className = '';
                     if (isNotFound) className = 'not-found';
-                    else if (isNewColumn || isDifferenceColumn) className = 'highlight';
+                    else if (isSourceColumn || isNewColumn || isDifferenceColumn) className = 'highlight';
                     
-                    // Formátuj hodnotu pro zobrazení
                     let displayValue = value || '';
                     if (typeof value === 'number' && value % 1 !== 0) {
                         displayValue = Math.round(value);
                     }
                     
-                    // Speciální formátování pro rozdíl
                     if (isDifferenceColumn && typeof value === 'number') {
-                        displayValue = value > 0 ? `+${value}` : value;
+                        displayValue = value > 0 ? '+' + value : value;
                     }
                     
-                    html += `<td class="${className}">${displayValue}</td>`;
+                    html += '<td class="' + className + '">' + displayValue + '</td>';
                 });
                 html += '</tr>';
             });
 
             html += '</tbody></table>';
+
+            if (resultData.length > 50) {
+                html += '<div class="status info">Zobrazeno prvních 50 z ' + resultData.length + ' záznamů. Stáhněte si kompletní výsledky.</div>';
+            }
 
             resultsDiv.innerHTML = html;
         }
@@ -623,10 +1017,34 @@
             link.click();
         }
 
-        // Event listenery pro checkování stavu
-        document.getElementById('mainColumn').addEventListener('change', checkReadyState);
-        document.getElementById('lookupColumn').addEventListener('change', checkReadyState);
-        document.getElementById('returnColumn').addEventListener('change', checkReadyState);
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // File inputs
+            document.getElementById('mainFile').addEventListener('change', handleMainFile);
+            document.getElementById('lookupFile').addEventListener('change', handleLookupFile);
+            
+            // Main sheet selector
+            document.getElementById('mainSheet').addEventListener('change', updateMainSheetData);
+            document.getElementById('mainIncludeHeaders').addEventListener('change', updateMainSheetData);
+            
+            // Sheet selection buttons
+            document.getElementById('selectAllBtn').addEventListener('click', selectAllSheets);
+            document.getElementById('clearAllBtn').addEventListener('click', clearAllSheets);
+            
+            // Headers checkbox for lookup
+            document.getElementById('multiSheetSelector').addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox') {
+                    onSheetSelectionChange(e.target.value, e.target.checked);
+                }
+            });
+            
+            // Main column selector
+            document.getElementById('mainColumn').addEventListener('change', checkReadyState);
+            
+            // VLOOKUP button
+            document.getElementById('vlookupBtn').addEventListener('click', performVLookup);
+        });
     </script>
 </body>
 </html>
+                
